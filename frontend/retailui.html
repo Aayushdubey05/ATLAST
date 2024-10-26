@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Delivery Management Dashboard</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css"
+    />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f8f9fa;
+      }
+
+      .sidebar {
+        height: 100vh;
+        background-color: #343a40;
+        color: white;
+      }
+
+      .profile {
+        text-align: center;
+        margin-top: 20px;
+      }
+
+      .upload-container {
+        position: relative;
+        width: 100px;
+        margin: 0 auto;
+      }
+
+      .upload-preview {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      .upload-icon {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        font-size: 1.5rem;
+        cursor: pointer;
+        background-color: #fff;
+        border-radius: 50%;
+        padding: 5px;
+      }
+
+      .content {
+        display: none; /* Hide all content by default */
+      }
+
+      .active {
+        display: block; /* Show active content */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 sidebar">
+          <div class="profile p-3 text-center">
+            <div class="upload-container">
+              <img
+                src="https://via.placeholder.com/100"
+                id="profilePic"
+                class="upload-preview"
+                alt="Profile Picture"
+              />
+              <label for="profileUpload">
+                <span class="upload-icon">➕</span>
+              </label>
+              <input type="file" id="profileUpload" accept="image/*" hidden />
+            </div>
+            <h3>Maria Jovani</h3>
+            <p>Manager</p>
+            <p>Shift started: 11:15 AM</p>
+          </div>
+          <ul class="nav flex-column">
+            <li class="nav-item">
+              <a
+                class="nav-link text-white"
+                href="#"
+                onclick="showContent('orders')"
+                >Orders</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link text-white"
+                href="#"
+                onclick="showContent('delivery')"
+                >Delivery</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link text-white"
+                href="#"
+                onclick="showContent('inventory')"
+                >Inventory</a
+              >
+            </li>
+          </ul>
+          <button class="btn btn-primary mt-3">Log Out</button>
+        </nav>
+
+        <main class="col-md-9 col-lg-10">
+          <div class="container-fluid">
+            <div class="row">
+              
+              <div class="col-md-4">
+                <h4 class="p-3">Active Orders</h4>
+                <ul class="list-group" id="active-orders-list"></ul>
+              </div>
+
+              <div class="col-md-8">
+                <div
+                  class="d-flex justify-content-between align-items-center p-3"
+                >
+                  <h4>
+                    Orders to review:
+                    <span class="text-primary" id="order-count">0</span>
+                  </h4>
+                  <span id="current-time"></span>
+                </div>
+
+                <div class="card p-3" id="order-details">
+                  <p class="text-muted">Select an order to view details.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="orders" class="content active">
+              <h5>Order Management</h5>
+              <p>Manage active orders here.</p>
+            </div>
+
+            <div id="delivery" class="content">
+              <h5>Delivery Overview</h5>
+              <p>
+                You have <strong id="delivery-count">0</strong> deliveries
+                scheduled for today.
+              </p>
+              <h6>Active Deliveries</h6>
+              <ul class="list-group" id="delivery-list"></ul>
+              <div
+                id="delivery-details"
+                class="card mt-3"
+                style="display: none"
+              >
+                <h6>Delivery Details</h6>
+                <p id="delivery-info">Select a delivery to see details.</p>
+                <button id="update-status" class="btn btn-primary">
+                  Update Status
+                </button>
+              </div>
+            </div>
+
+            <div id="inventory" class="content">
+              <h5>Inventory Management</h5>
+              <p>
+                You have <strong id="inventory-count">0</strong> items in
+                inventory.
+              </p>
+              <h6>Available Items</h6>
+              <ul class="list-group" id="inventory-list"></ul>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script>
+      const profileUpload = document.getElementById("profileUpload");
+      const profilePic = document.getElementById("profilePic");
+
+      profileUpload.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            profilePic.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      const ORDERS_API = "/api/orders"; 
+      const DELIVERIES_API = "/api/deliveries"; 
+      const INVENTORY_API = "/api/inventory"; 
+
+      async function fetchOrders() {
+        try {
+          const response = await fetch(ORDERS_API);
+          if (!response.ok) throw new Error("Failed to fetch orders");
+
+          const orders = await response.json();
+          renderOrders(orders);
+        } catch (error) {
+          console.error("Error fetching orders:", error);
+        }
+      }
+
+      async function fetchDeliveries() {
+        try {
+          const response = await fetch(DELIVERIES_API);
+          if (!response.ok) throw new Error("Failed to fetch deliveries");
+
+          const deliveries = await response.json();
+          renderDeliveries(deliveries);
+        } catch (error) {
+          console.error("Error fetching deliveries:", error);
+        }
+      }
+
+      async function fetchInventory() {
+        try {
+          const response = await fetch(INVENTORY_API);
+          if (!response.ok) throw new Error("Failed to fetch inventory");
+
+          const inventory = await response.json();
+          renderInventory(inventory);
+        } catch (error) {
+          console.error("Error fetching inventory:", error);
+        }
+      }
+
+      function renderOrders(orders) {
+        const orderList = document.getElementById("active-orders-list");
+        orderList.innerHTML = "";
+        document.getElementById("order-count").textContent = orders.length;
+
+        orders.forEach((order) => {
+          const listItem = document.createElement("li");
+          listItem.className = "list-group-item";
+          listItem.innerHTML = `
+                    <strong>Order #${order.id}</strong><br />
+                    ${order.address}<br />
+                    <small>Driver: ${order.driver}</small>
+                `;
+          listItem.addEventListener("click", () => showOrderDetails(order));
+          orderList.appendChild(listItem);
+        });
+      }
+
+      function renderDeliveries(deliveries) {
+        const deliveryList = document.getElementById("delivery-list");
+        deliveryList.innerHTML = ""; 
+        document.getElementById("delivery-count").textContent =
+          deliveries.length; 
+
+        deliveries.forEach((delivery) => {
+          const listItem = document.createElement("li");
+          listItem.className = "list-group-item";
+          listItem.innerHTML = `
+                    <strong>Delivery #${delivery.id}</strong><br />
+                    ${delivery.recipient}<br />
+                    ${delivery.address}<br />
+                    <small>Status: ${delivery.status} - Expected: ${delivery.expectedTime}</small>
+                `;
+          listItem.addEventListener("click", () =>
+            showDeliveryDetails(delivery)
+          );
+          deliveryList.appendChild(listItem);
+        });
+      }
+
+      function renderInventory(inventory) {
+        const inventoryList = document.getElementById("inventory-list");
+        inventoryList.innerHTML = ""; 
+        document.getElementById("inventory-count").textContent =
+          inventory.length; 
+
+        inventory.forEach((item) => {
+          const listItem = document.createElement("li");
+          listItem.className = "list-group-item";
+          listItem.innerHTML = `
+                    <strong>${item.name}</strong><br />
+                    Quantity: ${item.quantity}<br />
+                    Price: $${item.price.toFixed(2)}<br />
+                    <small>${
+                      item.description || "No description available."
+                    }</small>
+                `;
+          inventoryList.appendChild(listItem);
+        });
+      }
+
+      function showOrderDetails(order) {
+        const orderDetails = document.getElementById("order-details");
+        orderDetails.innerHTML = `
+                <strong>Order ID: #${order.id}</strong><br />
+                Address: ${order.address}<br />
+                Status: ${order.status}<br />
+                Driver: ${order.driver}
+            `;
+      }
+
+      function showDeliveryDetails(delivery) {
+        const deliveryInfo = document.getElementById("delivery-info");
+        const deliveryDetails = document.getElementById("delivery-details");
+        deliveryInfo.innerHTML = `
+                <strong>Delivery ID: #${delivery.id}</strong><br />
+                Recipient: ${delivery.recipient}<br />
+                Address: ${delivery.address}<br />
+                Status: ${delivery.status}<br />
+                Expected Time: ${delivery.expectedTime}<br />
+                <strong>Note:</strong> ${delivery.note || "N/A"}
+            `;
+        deliveryDetails.style.display = "block"; // Show delivery details
+      }
+
+      function confirmOrder(orderId) {
+        alert(`Order #${orderId} confirmed!`);
+      }
+
+      function contactCustomer(phone) {
+        window.open(`tel:${phone}`);
+      }
+
+      function cancelOrder(orderId) {
+        alert(`Order #${orderId} canceled!`);
+      }
+
+      function showContent(section) {
+        const contents = document.querySelectorAll(".content");
+        contents.forEach((content) => content.classList.remove("active"));
+
+        const activeContent = document.getElementById(section);
+        activeContent.classList.add("active");
+
+        // Fetch and render data based on the section
+        if (section === "orders") {
+          fetchOrders(); // Fetch orders when the orders section is active
+        } else if (section === "delivery") {
+          fetchDeliveries(); // Fetch deliveries when the delivery section is active
+        } else if (section === "inventory") {
+          fetchInventory(); // Fetch inventory when the inventory section is active
+        }
+      }
+
+      // Update current time every second
+      function updateTime() {
+        const currentTime = new Date().toLocaleTimeString();
+        document.getElementById("current-time").textContent = currentTime;
+      }
+
+      setInterval(updateTime, 1000); // Call updateTime every second
+      updateTime(); // Initial call to display the time
+    </script>
+  </body>
+</html>
